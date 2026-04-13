@@ -129,7 +129,10 @@
           ? `<a href="processing.html?id=${job.id}" class="btn btn-ghost" style="padding:5px 10px;font-size:12px;">View</a>` : '';
 
         const salaryCell = job.target_salary ? fmtSalary(job.target_salary) : '—';
-        return `<tr>
+        const emailCell = job.candidate_email
+          ? `<a href="mailto:${job.candidate_email}" style="color:var(--color-accent);text-decoration:none;">${job.candidate_email}</a>` : '—';
+        const deleteBtn = `<button class="btn btn-ghost" style="padding:5px 10px;font-size:12px;color:var(--color-danger);border-color:var(--color-danger);" onclick="deleteJob('${job.id}', this)">Delete</button>`;
+        return `<tr id="row-${job.id}">
           <td>${job.client_name}</td>
           <td>${job.job_title || '—'}</td>
           <td>${job.company || '—'}</td>
@@ -137,10 +140,11 @@
           <td>${job.experience_range || '—'}</td>
           <td>${job.highest_education || '—'}</td>
           <td>${salaryCell}</td>
+          <td>${emailCell}</td>
           <td>${statusBadge}</td>
           <td>${atsBadge}</td>
           <td>${fitBadge}</td>
-          <td style="display:flex;gap:6px;flex-wrap:wrap;">${download}${resultLink}${processingLink}</td>
+          <td style="display:flex;gap:6px;flex-wrap:wrap;">${download}${resultLink}${processingLink}${deleteBtn}</td>
         </tr>`;
       }).join('');
 
@@ -155,6 +159,7 @@
               <th>Experience</th>
               <th>Education</th>
               <th>Target Salary</th>
+              <th>Email</th>
               <th>Status</th>
               <th>ATS</th>
               <th>Fit</th>
@@ -163,6 +168,27 @@
           </thead>
           <tbody>${rows}</tbody>
         </table>`;
+    }
+
+    async function deleteJob(id, btn) {
+      if (!confirm('Delete this job record? This cannot be undone.')) return;
+      btn.disabled = true;
+      btn.textContent = 'Deleting…';
+      try {
+        const res = await fetch(`/api/jobs/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+          const row = document.getElementById(`row-${id}`);
+          if (row) row.remove();
+        } else {
+          btn.disabled = false;
+          btn.textContent = 'Delete';
+          alert('Failed to delete job.');
+        }
+      } catch {
+        btn.disabled = false;
+        btn.textContent = 'Delete';
+        alert('Failed to delete job.');
+      }
     }
 
     loadJobs().catch(() => {

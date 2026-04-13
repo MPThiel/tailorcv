@@ -44,6 +44,30 @@ router.get('/jobs/:id', async (req, res) => {
   }
 });
 
+router.patch('/jobs/:id/email', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: true, message: 'email is required.' });
+  try {
+    await jobsDb.updateJob(req.params.id, { candidate_email: email });
+    res.json({ ok: true });
+  } catch (err) {
+    if (err.code === 'PGRST116') return res.status(404).json({ error: true, message: 'Job not found.' });
+    console.error('[jobs/:id/email]', err.message);
+    res.status(500).json({ error: true, message: 'Could not save email.' });
+  }
+});
+
+router.delete('/jobs/:id', async (req, res) => {
+  try {
+    await jobsDb.deleteJob(req.params.id);
+    res.json({ ok: true });
+  } catch (err) {
+    if (err.code === 'PGRST116') return res.status(404).json({ error: true, message: 'Job not found.' });
+    console.error('[jobs/:id delete]', err.message);
+    res.status(500).json({ error: true, message: 'Could not delete job.' });
+  }
+});
+
 router.get('/scrape', async (req, res) => {
   const { url } = req.query;
   if (!url) return res.status(400).json({ error: true, message: 'url query param required.' });
@@ -77,6 +101,7 @@ router.post('/submit', upload.single('resume'), async (req, res) => {
     experience_range = '',
     current_salary = '',
     target_salary = '',
+    candidate_email = '',
   } = req.body;
 
   if (!client_name) {
@@ -100,6 +125,7 @@ router.post('/submit', upload.single('resume'), async (req, res) => {
     experience_range: experience_range || null,
     current_salary: current_salary ? parseInt(current_salary, 10) : null,
     target_salary: target_salary ? parseInt(target_salary, 10) : null,
+    candidate_email: candidate_email || null,
     gaps: [],
   };
 

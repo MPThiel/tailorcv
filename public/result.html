@@ -192,16 +192,20 @@
         target_salary: currentJob?.target_salary != null ? String(currentJob.target_salary) : '',
       };
 
-      try {
-        await fetch(APPS_SCRIPT_URL, {
+      // Fire both in parallel — neither blocks the download
+      await Promise.allSettled([
+        fetch(APPS_SCRIPT_URL, {
           method: 'POST',
           mode: 'no-cors',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
-        });
-      } catch (_) {
-        // Ignore — always proceed to download
-      }
+        }),
+        fetch(`/api/jobs/${jobId}/email`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        }),
+      ]);
 
       emailInput.disabled = true;
       submitBtn.style.display = 'none';

@@ -56,18 +56,18 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label" for="job-url">Job Posting URL</label>
+          <label class="form-label" for="job-url">Job Posting URL (optional — for tracking)</label>
           <div class="input-row">
             <input type="url" class="form-input" id="job-url" name="job_url" placeholder="https://...">
             <button type="button" class="btn btn-ghost" id="fetch-btn">Fetch</button>
           </div>
           <div class="job-preview" id="job-preview"></div>
-          <div class="text-sm text-muted mt-8">Note: Indeed and LinkedIn block scraping. Use the paste option for these sites.</div>
         </div>
 
-        <button type="button" class="collapsible-toggle" id="paste-toggle">Or paste the job description instead</button>
-        <div class="collapsible-body" id="paste-body">
-          <textarea class="form-textarea" id="job-text" name="job_text" placeholder="Paste the full job description here…" style="min-height:200px;margin-top:0;"></textarea>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label" for="job-text">Job Description <span style="color:var(--color-danger)">*</span></label>
+          <textarea class="form-textarea" id="job-text" name="job_text" placeholder="Paste the full job description here…" style="min-height:200px;" required></textarea>
+          <div class="text-sm text-muted mt-8">Paste the full job description here. URL is optional and used for reference tracking only.</div>
         </div>
       </div>
 
@@ -183,17 +183,11 @@
       document.getElementById('client-name').value = params.get('client');
     }
 
-    // Auto-expand paste area and show warning if redirected from a blocked scrape
+    // Show warning and focus textarea if redirected from a blocked scrape
     if (params.get('scrape_blocked') === '1') {
       const warningBanner = document.getElementById('warning-banner');
       warningBanner.textContent = '⚠️ This job board blocks automated scraping (e.g. LinkedIn, Indeed). Please paste the job description manually below.';
       warningBanner.style.display = 'block';
-
-      const pasteBodyEl = document.getElementById('paste-body');
-      const pasteToggleEl = document.getElementById('paste-toggle');
-      pasteBodyEl.classList.add('open');
-      pasteToggleEl.textContent = 'Hide paste area';
-
       const pasteTextarea = document.getElementById('job-text');
       pasteTextarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
       pasteTextarea.focus();
@@ -230,16 +224,6 @@
       dropFilename.textContent = file.name;
     }
 
-    // Paste collapsible
-    const pasteToggle = document.getElementById('paste-toggle');
-    const pasteBody = document.getElementById('paste-body');
-    pasteToggle.addEventListener('click', () => {
-      pasteBody.classList.toggle('open');
-      pasteToggle.textContent = pasteBody.classList.contains('open')
-        ? 'Hide paste area'
-        : 'Or paste the job description instead';
-    });
-
     // URL fetch
     const fetchBtn = document.getElementById('fetch-btn');
     const jobPreview = document.getElementById('job-preview');
@@ -255,13 +239,7 @@
         const data = await res.json();
         if (data.error) {
           if (data.code === 'SCRAPE_BLOCKED') {
-            const pasteBodyEl = document.getElementById('paste-body');
-            const pasteToggleEl = document.getElementById('paste-toggle');
-            if (!pasteBodyEl.classList.contains('open')) {
-              pasteBodyEl.classList.add('open');
-              pasteToggleEl.textContent = 'Hide paste area';
-            }
-            showError('⚠️ This job board (e.g. Indeed, LinkedIn) blocks automated scraping. Please copy and paste the job description manually instead.');
+            showError('⚠️ This job board (e.g. Indeed, LinkedIn) blocks automated scraping. Please paste the job description manually below.');
           } else {
             showError(data.message);
           }
@@ -309,9 +287,8 @@
 
       if (!fileInput.files.length) { showError('Please upload a resume file.'); return; }
 
-      const jobUrl = document.getElementById('job-url').value.trim();
       const jobText = document.getElementById('job-text').value.trim();
-      if (!jobUrl && !jobText) { showError('Provide a job URL or paste the job description.'); return; }
+      if (!jobText) { showError('Please paste the job description before submitting.'); return; }
 
       const submitBtn = document.getElementById('submit-btn');
       submitBtn.disabled = true;
