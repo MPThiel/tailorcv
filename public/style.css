@@ -666,6 +666,17 @@ tbody tr:hover {
   color: var(--color-text-muted);
 }
 
+/* Warning banner (yellow) */
+.warning-banner {
+  padding: 16px 20px;
+  background: rgba(255, 196, 0, 0.10);
+  border: 1px solid rgba(255, 196, 0, 0.40);
+  border-radius: var(--radius);
+  color: #ffc400;
+  font-size: 13px;
+  margin-bottom: 24px;
+}
+
 /* Error banner */
 .error-banner {
   padding: 16px 20px;

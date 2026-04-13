@@ -25,6 +25,7 @@
       </div>
     </div>
 
+    <div id="warning-banner" class="warning-banner" style="display:none;"></div>
     <div id="error-banner" class="error-banner" style="display:none;"></div>
 
     <form id="submit-form" enctype="multipart/form-data">
@@ -182,13 +183,20 @@
       document.getElementById('client-name').value = params.get('client');
     }
 
-    // Auto-expand paste area and show alert if redirected from a blocked scrape
+    // Auto-expand paste area and show warning if redirected from a blocked scrape
     if (params.get('scrape_blocked') === '1') {
+      const warningBanner = document.getElementById('warning-banner');
+      warningBanner.textContent = '⚠️ This job board blocks automated scraping (e.g. LinkedIn, Indeed). Please paste the job description manually below.';
+      warningBanner.style.display = 'block';
+
       const pasteBodyEl = document.getElementById('paste-body');
       const pasteToggleEl = document.getElementById('paste-toggle');
       pasteBodyEl.classList.add('open');
       pasteToggleEl.textContent = 'Hide paste area';
-      showError('⚠️ This job board (e.g. Indeed, LinkedIn) blocks automated scraping. Please copy and paste the job description manually instead.');
+
+      const pasteTextarea = document.getElementById('job-text');
+      pasteTextarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      pasteTextarea.focus();
     }
 
     // Drop zone
