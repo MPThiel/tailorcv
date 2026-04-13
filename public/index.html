@@ -45,20 +45,12 @@
         <div class="stat-label">Average Fit Score</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value" id="stat-avg-salary">—</div>
-        <div class="stat-label">Avg. Target Salary</div>
+        <div class="stat-value" id="stat-avg-edu" style="font-size:15px;line-height:1.3;">—</div>
+        <div class="stat-label">Most Common Education</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value" id="stat-avg-exp" style="font-size:16px;line-height:1.2;">—</div>
-        <div class="stat-label">Most Common Level</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value" id="stat-avg-uplift">—</div>
-        <div class="stat-label">Avg. Salary Uplift</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value" id="stat-success-rate">—</div>
-        <div class="stat-label">Success Rate</div>
+        <div class="stat-value" id="stat-avg-exp" style="font-size:15px;line-height:1.3;">—</div>
+        <div class="stat-label">Most Common Experience</div>
       </div>
     </div>
 
@@ -217,59 +209,37 @@
         el.innerHTML = `<span class="badge ${ATS_SCORE_CLASS[label]}" style="font-size:13px;padding:3px 10px;">${label}</span>`;
       }
 
-      // 4. Avg Fit Score
+      // 4. Avg Fit Score (min 3 completed jobs)
       const fitScores = completed.map(j => j.fit_score).filter(n => n != null);
       const fitEl = document.getElementById('stat-avg-fit');
-      if (fitScores.length >= 5) {
+      if (fitScores.length >= 3) {
         const avg = fitScores.reduce((a, b) => a + b, 0) / fitScores.length;
         const rounded = Math.round(avg * 10) / 10;
-        fitEl.innerHTML = `<span class="badge ${fitScoreBadgeClass(rounded)}" style="font-size:13px;padding:3px 10px;">${rounded}</span>`;
+        fitEl.innerHTML = `<span class="badge ${fitScoreBadgeClass(rounded)}" style="font-size:13px;padding:3px 10px;">${rounded}/10</span>`;
       } else {
         fitEl.textContent = '—';
       }
 
-      // 5. Avg Target Salary
-      const salaries = completed.map(j => j.target_salary).filter(n => n != null && n > 0);
-      const salaryEl = document.getElementById('stat-avg-salary');
-      if (salaries.length >= 3) {
-        const avg = salaries.reduce((a, b) => a + b, 0) / salaries.length;
-        salaryEl.textContent = fmtSalary(avg);
-        salaryEl.style.fontSize = '20px';
+      // 5. Most Common Education (min 3 completed jobs)
+      const eduEl = document.getElementById('stat-avg-edu');
+      if (completed.length >= 3) {
+        const eduCounts = {};
+        completed.forEach(j => { if (j.highest_education) eduCounts[j.highest_education] = (eduCounts[j.highest_education] || 0) + 1; });
+        const topEdu = Object.entries(eduCounts).sort((a, b) => b[1] - a[1])[0];
+        eduEl.textContent = topEdu ? topEdu[0] : '—';
       } else {
-        salaryEl.textContent = '—';
+        eduEl.textContent = '—';
       }
 
-      // 6. Most Common Experience Level
-      const expCounts = {};
-      completed.forEach(j => { if (j.experience_range) expCounts[j.experience_range] = (expCounts[j.experience_range] || 0) + 1; });
-      const topExp = Object.entries(expCounts).sort((a, b) => b[1] - a[1])[0];
+      // 6. Most Common Experience (min 3 completed jobs)
       const expEl = document.getElementById('stat-avg-exp');
-      expEl.textContent = topExp ? topExp[0] : '—';
-
-      // 7. Avg Salary Uplift
-      const upliftEl = document.getElementById('stat-avg-uplift');
-      const upliftJobs = completed.filter(j => j.current_salary != null && j.current_salary > 0 && j.target_salary != null && j.target_salary > 0);
-      if (upliftJobs.length >= 3) {
-        const avgUplift = upliftJobs.reduce((sum, j) => sum + (j.target_salary - j.current_salary), 0) / upliftJobs.length;
-        const sign = avgUplift >= 0 ? '+' : '';
-        upliftEl.textContent = sign + fmtSalary(avgUplift);
-        upliftEl.style.color = avgUplift >= 0 ? 'var(--color-success)' : 'var(--color-danger)';
-        upliftEl.style.fontSize = '18px';
+      if (completed.length >= 3) {
+        const expCounts = {};
+        completed.forEach(j => { if (j.experience_range) expCounts[j.experience_range] = (expCounts[j.experience_range] || 0) + 1; });
+        const topExp = Object.entries(expCounts).sort((a, b) => b[1] - a[1])[0];
+        expEl.textContent = topExp ? topExp[0] : '—';
       } else {
-        upliftEl.textContent = '—';
-      }
-
-      // 8. Success Rate
-      const successEl = document.getElementById('stat-success-rate');
-      if (jobs.length > 0) {
-        const rate = Math.round((completed.length / jobs.length) * 100);
-        successEl.textContent = rate + '%';
-        successEl.style.fontSize = '24px';
-        if (rate > 70) successEl.style.color = 'var(--color-success)';
-        else if (rate >= 50) successEl.style.color = '#ffc400';
-        else successEl.style.color = 'var(--color-danger)';
-      } else {
-        successEl.textContent = '—';
+        expEl.textContent = '—';
       }
 
       // --- Streak ---

@@ -42,10 +42,13 @@ Output format:
   "keywords_matched": ["string"],
   "gaps": ["string"],
   "ats_score": "High | Medium | Low",
-  "fit_score": integer from 1-10
+  "fit_score": integer from 1-10,
+  "highest_education": "string"
 }
 
-fit_score: A number from 1-10 representing how well this candidate genuinely fits this specific role, based on their actual experience vs. the job requirements. Be honest — do not inflate. 10 = near-perfect match, 1 = significant mismatch. Base this on the original resume only, not the rewritten version.`;
+fit_score: A number from 1-10 representing how well this candidate genuinely fits this specific role, based on their actual experience vs. the job requirements. Be honest — do not inflate. 10 = near-perfect match, 1 = significant mismatch. Base this on the original resume only, not the rewritten version.
+
+highest_education: Extract the candidate's highest education level from their resume. Return exactly one of: "High School", "Diploma", "Bachelor's", "Honours", "Master's", "MBA", "PhD", "Professional Certification". If unclear, return "Bachelor's" as default.`;
 
 function buildUserMessage(resumeText, jobDescription, prefs) {
   return `RESUME:

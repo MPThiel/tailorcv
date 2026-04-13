@@ -40,6 +40,10 @@
         <div class="stat-value" id="stat-complete">—</div>
         <div class="stat-label">All Completed</div>
       </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-avg-salary">—</div>
+        <div class="stat-label">Avg. Target Salary</div>
+      </div>
     </div>
 
     <div class="table-wrap" id="table-wrap">
@@ -76,6 +80,10 @@
       return 'badge-low';
     }
 
+    function fmtSalary(n) {
+      return '$' + Math.round(n).toLocaleString('en-US');
+    }
+
     async function loadJobs() {
       const res = await fetch('/api/jobs');
       const jobs = await res.json();
@@ -85,6 +93,16 @@
       document.getElementById('stat-complete').textContent = completed.length;
       document.getElementById('stat-week').textContent =
         completed.filter(j => isThisWeek(j.completed_at)).length;
+
+      const salaries = completed.map(j => j.target_salary).filter(n => n != null && n > 0);
+      const salaryEl = document.getElementById('stat-avg-salary');
+      if (salaries.length >= 3) {
+        const avg = salaries.reduce((a, b) => a + b, 0) / salaries.length;
+        salaryEl.textContent = fmtSalary(avg);
+        salaryEl.style.fontSize = '18px';
+      } else {
+        salaryEl.textContent = '—';
+      }
 
       const wrap = document.getElementById('table-wrap');
 
@@ -110,12 +128,15 @@
         const processingLink = (job.status === 'processing' || job.status === 'pending')
           ? `<a href="processing.html?id=${job.id}" class="btn btn-ghost" style="padding:5px 10px;font-size:12px;">View</a>` : '';
 
+        const salaryCell = job.target_salary ? fmtSalary(job.target_salary) : '—';
         return `<tr>
           <td>${job.client_name}</td>
           <td>${job.job_title || '—'}</td>
           <td>${job.company || '—'}</td>
           <td>${fmtDate(job.created_at)}</td>
           <td>${job.experience_range || '—'}</td>
+          <td>${job.highest_education || '—'}</td>
+          <td>${salaryCell}</td>
           <td>${statusBadge}</td>
           <td>${atsBadge}</td>
           <td>${fitBadge}</td>
@@ -132,6 +153,8 @@
               <th>Company</th>
               <th>Date</th>
               <th>Experience</th>
+              <th>Education</th>
+              <th>Target Salary</th>
               <th>Status</th>
               <th>ATS</th>
               <th>Fit</th>

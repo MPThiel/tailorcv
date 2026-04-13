@@ -212,6 +212,7 @@ async function runPipeline(id, resumePath, resumeOriginal, jobText, jobUrl, pref
     ats_score: result.ats_score || null,
     fit_score: result.fit_score != null ? result.fit_score : null,
     gaps: result.gaps || [],
+    highest_education: result.highest_education || null,
     _step: 'done',
   });
   console.log(`[submit] [${id}] Pipeline complete.`);
