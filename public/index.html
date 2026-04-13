@@ -26,11 +26,11 @@
       <a href="new.html" class="btn btn-primary">+ New Job</a>
     </div>
 
-    <!-- 6-stat grid -->
+    <!-- stats grid -->
     <div class="stats-grid" id="stats-grid">
       <div class="stat-card">
         <div class="stat-value" id="stat-total">—</div>
-        <div class="stat-label">Total Jobs</div>
+        <div class="stat-label">Completed Jobs</div>
       </div>
       <div class="stat-card">
         <div class="stat-value" id="stat-week">—</div>
@@ -52,6 +52,14 @@
         <div class="stat-value" id="stat-avg-exp" style="font-size:16px;line-height:1.2;">—</div>
         <div class="stat-label">Most Common Level</div>
       </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-avg-uplift">—</div>
+        <div class="stat-label">Avg. Salary Uplift</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-success-rate">—</div>
+        <div class="stat-label">Success Rate</div>
+      </div>
     </div>
 
     <!-- Gamification row -->
@@ -60,6 +68,22 @@
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
         <span class="section-title" style="flex-shrink:0;">Top Industries This Week</span>
         <span id="industry-pills"></span>
+      </div>
+      <div id="hot-right-now" style="display:none;align-items:center;gap:8px;">
+        <span class="section-title" style="flex-shrink:0;">⚡ Hot Right Now:</span>
+        <span id="hot-pill"></span>
+      </div>
+    </div>
+
+    <!-- Highlight cards row -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:28px;">
+      <div class="stat-card">
+        <div class="stat-label" style="margin-bottom:8px;">🏆 Top Performer This Week</div>
+        <div id="highlight-top-performer" style="font-size:13px;color:var(--color-text-muted);">No completed jobs this week yet</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label" style="margin-bottom:8px;">🎯 Best ATS Score This Week</div>
+        <div id="highlight-best-ats" style="font-size:13px;color:var(--color-text-muted);">—</div>
       </div>
     </div>
 
@@ -163,17 +187,28 @@
       return 'badge-low';
     }
 
+    function isLast48h(iso) {
+      if (!iso) return false;
+      const d = new Date(iso);
+      const now = new Date();
+      return d >= new Date(now - 48 * 60 * 60 * 1000) && d <= now;
+    }
+
     async function loadJobs() {
       const res = await fetch('/api/jobs');
       const jobs = await res.json();
       const completed = jobs.filter(j => j.status === 'complete');
+      const completedThisWeek = completed.filter(j => isThisWeek(j.created_at));
 
       // --- Stats ---
-      document.getElementById('stat-total').textContent = jobs.length;
-      document.getElementById('stat-week').textContent =
-        completed.filter(j => isThisWeek(j.completed_at)).length;
 
-      // Avg ATS
+      // 1. Completed Jobs (completed only)
+      document.getElementById('stat-total').textContent = completed.length;
+
+      // 2. Completed This Week
+      document.getElementById('stat-week').textContent = completedThisWeek.length;
+
+      // 3. Avg ATS
       const atsNums = completed.map(j => atsToNum(j.ats_score)).filter(n => n != null);
       if (atsNums.length) {
         const avg = atsNums.reduce((a, b) => a + b, 0) / atsNums.length;
@@ -182,7 +217,7 @@
         el.innerHTML = `<span class="badge ${ATS_SCORE_CLASS[label]}" style="font-size:13px;padding:3px 10px;">${label}</span>`;
       }
 
-      // Avg Fit Score
+      // 4. Avg Fit Score
       const fitScores = completed.map(j => j.fit_score).filter(n => n != null);
       const fitEl = document.getElementById('stat-avg-fit');
       if (fitScores.length >= 5) {
@@ -193,8 +228,8 @@
         fitEl.textContent = '—';
       }
 
-      // Avg Target Salary
-      const salaries = jobs.map(j => j.target_salary).filter(n => n != null && n > 0);
+      // 5. Avg Target Salary
+      const salaries = completed.map(j => j.target_salary).filter(n => n != null && n > 0);
       const salaryEl = document.getElementById('stat-avg-salary');
       if (salaries.length >= 3) {
         const avg = salaries.reduce((a, b) => a + b, 0) / salaries.length;
@@ -204,15 +239,41 @@
         salaryEl.textContent = '—';
       }
 
-      // Most Common Experience Level
+      // 6. Most Common Experience Level
       const expCounts = {};
-      jobs.forEach(j => { if (j.experience_range) expCounts[j.experience_range] = (expCounts[j.experience_range] || 0) + 1; });
+      completed.forEach(j => { if (j.experience_range) expCounts[j.experience_range] = (expCounts[j.experience_range] || 0) + 1; });
       const topExp = Object.entries(expCounts).sort((a, b) => b[1] - a[1])[0];
       const expEl = document.getElementById('stat-avg-exp');
       expEl.textContent = topExp ? topExp[0] : '—';
 
+      // 7. Avg Salary Uplift
+      const upliftEl = document.getElementById('stat-avg-uplift');
+      const upliftJobs = completed.filter(j => j.current_salary != null && j.current_salary > 0 && j.target_salary != null && j.target_salary > 0);
+      if (upliftJobs.length >= 3) {
+        const avgUplift = upliftJobs.reduce((sum, j) => sum + (j.target_salary - j.current_salary), 0) / upliftJobs.length;
+        const sign = avgUplift >= 0 ? '+' : '';
+        upliftEl.textContent = sign + fmtSalary(avgUplift);
+        upliftEl.style.color = avgUplift >= 0 ? 'var(--color-success)' : 'var(--color-danger)';
+        upliftEl.style.fontSize = '18px';
+      } else {
+        upliftEl.textContent = '—';
+      }
+
+      // 8. Success Rate
+      const successEl = document.getElementById('stat-success-rate');
+      if (jobs.length > 0) {
+        const rate = Math.round((completed.length / jobs.length) * 100);
+        successEl.textContent = rate + '%';
+        successEl.style.fontSize = '24px';
+        if (rate > 70) successEl.style.color = 'var(--color-success)';
+        else if (rate >= 50) successEl.style.color = '#ffc400';
+        else successEl.style.color = 'var(--color-danger)';
+      } else {
+        successEl.textContent = '—';
+      }
+
       // --- Streak ---
-      const streak = computeStreak(jobs);
+      const streak = computeStreak(completed);
       const streakEl = document.getElementById('streak-display');
       if (streak > 0) {
         streakEl.innerHTML = `<span style="font-size:18px;">🔥</span> <span class="streak-count">${streak}</span> <span>day streak</span>`;
@@ -221,7 +282,7 @@
       }
 
       // --- Industry pills ---
-      const industries = topIndustries(jobs);
+      const industries = topIndustries(completed);
       const pillsEl = document.getElementById('industry-pills');
       if (industries.length) {
         pillsEl.innerHTML = industries.map(i => `<span class="industry-pill" data-industry="${i}">${i}</span>`).join('');
@@ -246,9 +307,56 @@
         pillsEl.innerHTML = '<span class="text-sm text-muted">No data this week</span>';
       }
 
+      // --- Hot Right Now pill ---
+      const last48 = completed.filter(j => isLast48h(j.created_at));
+      if (last48.length >= 2) {
+        const titleCounts = {};
+        last48.forEach(j => {
+          const t = (j.job_title || '').trim();
+          if (t) titleCounts[t] = (titleCounts[t] || 0) + 1;
+        });
+        const hotTitle = Object.entries(titleCounts).sort((a, b) => b[1] - a[1])[0];
+        if (hotTitle) {
+          const hotWrap = document.getElementById('hot-right-now');
+          hotWrap.style.display = 'flex';
+          document.getElementById('hot-pill').innerHTML =
+            `<span class="industry-pill" style="background:var(--color-accent);color:#0f0f0f;border-color:var(--color-accent);">${hotTitle[0]}</span>`;
+        }
+      }
+
+      // --- Top Performer This Week ---
+      const topPerformerEl = document.getElementById('highlight-top-performer');
+      const withFit = completedThisWeek.filter(j => j.fit_score != null);
+      if (withFit.length > 0) {
+        const top = withFit.reduce((best, j) => j.fit_score > best.fit_score ? j : best);
+        const titleStr = [top.job_title, top.company].filter(Boolean).join(' at ');
+        const fitClass = fitScoreBadgeClass(top.fit_score);
+        topPerformerEl.innerHTML = `${titleStr || '—'} — <span class="badge ${fitClass}" style="font-size:11px;padding:2px 7px;">${top.fit_score}/10 fit</span>`;
+        topPerformerEl.style.color = 'var(--color-text)';
+      } else {
+        topPerformerEl.textContent = 'No completed jobs this week yet';
+      }
+
+      // --- Best ATS Score This Week ---
+      const bestAtsEl = document.getElementById('highlight-best-ats');
+      const atsOrder = ['High', 'Medium', 'Low'];
+      let bestAtsJob = null;
+      for (const level of atsOrder) {
+        bestAtsJob = completedThisWeek.find(j => j.ats_score === level);
+        if (bestAtsJob) break;
+      }
+      if (bestAtsJob) {
+        const titleStr = [bestAtsJob.job_title, bestAtsJob.company].filter(Boolean).join(' at ');
+        const cls = ATS_SCORE_CLASS[bestAtsJob.ats_score] || '';
+        bestAtsEl.innerHTML = `${titleStr || '—'} — <span class="badge ${cls}" style="font-size:11px;padding:2px 7px;">ATS: ${bestAtsJob.ats_score}</span>`;
+        bestAtsEl.style.color = 'var(--color-text)';
+      } else {
+        bestAtsEl.textContent = '—';
+      }
+
       // --- Anon table ---
       const wrap = document.getElementById('table-wrap');
-      recentJobs = [...jobs].reverse().slice(0, 20).filter(j => j.status === 'complete');
+      recentJobs = [...completed].reverse().slice(0, 20);
 
       if (recentJobs.length === 0) {
         wrap.innerHTML = `
