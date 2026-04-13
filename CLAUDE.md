@@ -26,7 +26,7 @@ Future phases add self-serve client access and Stripe payment gating.
 | Scraping      | Puppeteer + Cheerio             | URL → raw job description text             |
 | Resume Parse  | `mammoth` (.docx) + `pdf-parse` (PDF) | Extract plain text from uploaded resume |
 | .docx Output  | `docx` npm library              | Build styled output document               |
-| Job Storage   | Flat-file JSON (`data/jobs.json`) | No database on Phase 1                   |
+| Job Storage   | Supabase Postgres (`@supabase/supabase-js`) | Cloud DB, replaces flat-file jobs.json |
 | File Storage  | Local filesystem (`data/outputs/`) | Generated .docx files stored here        |
 
 ---
@@ -52,8 +52,12 @@ tailorcv/
 │   │   ├── parser.js       # Resume file → structured plain text
 │   │   ├── rewriter.js     # Claude API call — core rewrite logic
 │   │   └── builder.js      # Structured JSON → formatted .docx
+│   ├── db/
+│   │   ├── supabase.js     # Supabase client initialisation
+│   │   ├── jobs.js         # DB abstraction: getAllJobs, getJobById, createJob, updateJob
+│   │   └── setup.sql       # Run once in Supabase SQL editor to create jobs table
 │   └── data/
-│       ├── jobs.json       # Flat-file job/session tracker
+│       ├── uploads/        # Temp resume uploads (multer)
 │       └── outputs/        # Generated .docx files (gitignored)
 ├── .env                    # Secrets — never commit
 ├── .gitignore
@@ -73,6 +77,8 @@ Store in `.env`. Never hardcode. Never log.
 ```
 ANTHROPIC_API_KEY=your_key_here
 PORT=3000
+SUPABASE_URL=your_project_url
+SUPABASE_ANON_KEY=your_anon_key
 ```
 
 Access via `process.env.ANTHROPIC_API_KEY`. Use `dotenv` package.
@@ -208,29 +214,16 @@ PREFERENCES:
 
 ---
 
-## Job Tracking — `data/jobs.json`
+## Job Tracking — Supabase Postgres
 
-Schema for each job entry:
+All job state is stored in the `jobs` table in Supabase. The schema is in `server/db/setup.sql`.
+Run that file once in the Supabase SQL editor before first use.
 
-```json
-{
-  "id": "uuid",
-  "client_name": "string",
-  "job_title": "string",
-  "company": "string",
-  "job_url": "string",
-  "status": "pending | processing | complete | error",
-  "created_at": "ISO timestamp",
-  "completed_at": "ISO timestamp | null",
-  "output_file": "filename.docx | null",
-  "keywords_matched": 0,
-  "ats_score": "High | Medium | Low | null",
-  "gaps": []
-}
-```
+DB access goes through `server/db/jobs.js` only — never call Supabase directly from routes.
+All four functions are async: `getAllJobs()`, `getJobById(id)`, `createJob(job)`, `updateJob(id, updates)`.
 
-Read/write this file synchronously using `fs.readFileSync` / `fs.writeFileSync` with JSON parse/stringify.
-No DB abstraction needed in Phase 1.
+Internal pipeline columns (`_step`, `_step_error`, `_error_code`) are written during processing
+and read by the status endpoint. They are not exposed in the frontend.
 
 ---
 
@@ -306,7 +299,7 @@ No DB abstraction needed in Phase 1.
 - No email notifications
 - No Stripe / payment integration
 - No cloud storage (S3 etc.)
-- No database (SQLite, Postgres, etc.)
+- No additional database tables beyond `jobs`
 - No multi-tenancy
 - No rate limiting (operator-only tool for now)
 
@@ -338,7 +331,7 @@ npm start            # Production start
 
 ```bash
 npm install express multer mammoth pdf-parse docx puppeteer \
-  cheerio @anthropic-ai/sdk dotenv uuid
+  cheerio @anthropic-ai/sdk dotenv uuid @supabase/supabase-js
 npm install --save-dev nodemon
 ```
 
@@ -346,9 +339,12 @@ npm install --save-dev nodemon
 
 ## Notes for Claude Code
 
-- Always check `data/jobs.json` exists before reading — create it with `[]` if missing
+- The `jobs` table must be created in Supabase before first run — paste `server/db/setup.sql`
+  into the Supabase SQL editor and execute it
+- Set `SUPABASE_URL` and `SUPABASE_ANON_KEY` in `.env` and in Railway environment variables
 - Always check `data/outputs/` directory exists before writing — create it if missing
 - Puppeteer may need `--no-sandbox` flag in some environments: handle in `scraper.js`
 - The `docx` library uses a builder pattern — always check their docs if structure is unclear
 - Keep all Claude API calls in `rewriter.js` only — no API calls from routes directly
+- All DB access must go through `server/db/jobs.js` — never import supabase client directly in routes
 - When unsure about a UI detail, default to the style guide above — dark, minimal, precise

@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS jobs (
+  id UUID PRIMARY KEY,
+  client_name TEXT,
+  job_title TEXT,
+  company TEXT,
+  job_url TEXT,
+  status TEXT DEFAULT 'pending',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  completed_at TIMESTAMPTZ,
+  output_file TEXT,
+  keywords_matched INTEGER DEFAULT 0,
+  ats_score TEXT,
+  fit_score INTEGER,
+  gaps JSONB DEFAULT '[]',
+  experience_range TEXT,
+  current_salary INTEGER,
+  target_salary INTEGER,
+  _error_code TEXT,
+  _step TEXT,
+  _step_error TEXT
+);

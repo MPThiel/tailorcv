@@ -1,22 +1,15 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const jobsDb = require('../db/jobs');
 
 const router = express.Router();
-const JOBS_FILE = path.join(__dirname, '../data/jobs.json');
 const OUTPUTS_DIR = path.join(__dirname, '../data/outputs');
 
-function readJobs() {
-  if (!fs.existsSync(JOBS_FILE)) return [];
-  return JSON.parse(fs.readFileSync(JOBS_FILE, 'utf8'));
-}
-
-router.get('/download/:id', (req, res) => {
+router.get('/download/:id', async (req, res) => {
   try {
-    const jobs = readJobs();
-    const job = jobs.find((j) => j.id === req.params.id);
+    const job = await jobsDb.getJobById(req.params.id);
 
-    if (!job) return res.status(404).json({ error: true, message: 'Job not found.' });
     if (!job.output_file) {
       return res.status(404).json({ error: true, message: 'Output file not ready.' });
     }
@@ -31,6 +24,7 @@ router.get('/download/:id', (req, res) => {
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     fs.createReadStream(filePath).pipe(res);
   } catch (err) {
+    if (err.code === 'PGRST116') return res.status(404).json({ error: true, message: 'Job not found.' });
     console.error(`[${req.params.id}]`, err.message);
     res.status(500).json({ error: true, message: 'Download failed.' });
   }

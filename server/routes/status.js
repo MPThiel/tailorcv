@@ -1,14 +1,7 @@
 const express = require('express');
-const path = require('path');
-const fs = require('fs');
+const jobsDb = require('../db/jobs');
 
 const router = express.Router();
-const JOBS_FILE = path.join(__dirname, '../data/jobs.json');
-
-function readJobs() {
-  if (!fs.existsSync(JOBS_FILE)) return [];
-  return JSON.parse(fs.readFileSync(JOBS_FILE, 'utf8'));
-}
 
 const STEP_MAP = {
   parsing: 1,
@@ -19,14 +12,10 @@ const STEP_MAP = {
   done: 5,
 };
 
-router.get('/status/:id', (req, res) => {
+router.get('/status/:id', async (req, res) => {
   try {
-    const jobs = readJobs();
-    const job = jobs.find((j) => j.id === req.params.id);
-    if (!job) return res.status(404).json({ error: true, message: 'Job not found.' });
-
+    const job = await jobsDb.getJobById(req.params.id);
     const step = STEP_MAP[job._step] || 0;
-
     res.json({
       id: job.id,
       status: job.status,
@@ -36,6 +25,7 @@ router.get('/status/:id', (req, res) => {
       error_code: job._error_code || null,
     });
   } catch (err) {
+    if (err.code === 'PGRST116') return res.status(404).json({ error: true, message: 'Job not found.' });
     console.error(`[${req.params.id}]`, err.message);
     res.status(500).json({ error: true, message: 'Could not read job status.' });
   }
