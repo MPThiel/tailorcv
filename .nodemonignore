@@ -1,0 +1,4 @@
+server/data/*
+server/data/uploads/*
+server/data/outputs/*
+server/data/jobs.json

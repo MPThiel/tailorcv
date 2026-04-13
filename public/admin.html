@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TailorCV — Admin</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav class="nav">
+    <div class="container nav-inner">
+      <span class="nav-logo">TailorCV</span>
+      <div class="nav-links">
+        <a href="index.html">Dashboard</a>
+        <a href="new.html">New Job</a>
+        <a href="admin.html" class="active" style="color:var(--color-accent);">Admin</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Admin</h1>
+        <p class="page-subtitle">Full operator view — all client jobs unredacted</p>
+      </div>
+      <a href="new.html" class="btn btn-primary">+ New Job</a>
+    </div>
+
+    <div class="stats-bar">
+      <div class="stat-card">
+        <div class="stat-value" id="stat-total">—</div>
+        <div class="stat-label">Total Jobs</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-week">—</div>
+        <div class="stat-label">Completed This Week</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-complete">—</div>
+        <div class="stat-label">All Completed</div>
+      </div>
+    </div>
+
+    <div class="table-wrap" id="table-wrap">
+      <div class="empty-state">
+        <div class="empty-state-title">Loading jobs…</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const ATS_SCORE_CLASS = { High: 'badge-high', Medium: 'badge-medium', Low: 'badge-low' };
+    const STATUS_CLASS = {
+      pending: 'badge-pending',
+      processing: 'badge-processing',
+      complete: 'badge-complete',
+      error: 'badge-error',
+    };
+
+    function fmtDate(iso) {
+      if (!iso) return '—';
+      return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    function isThisWeek(iso) {
+      if (!iso) return false;
+      const d = new Date(iso);
+      const now = new Date();
+      return d >= new Date(now - 7 * 24 * 60 * 60 * 1000) && d <= now;
+    }
+
+    function fitScoreBadgeClass(score) {
+      if (score >= 8) return 'badge-high';
+      if (score >= 5) return 'badge-medium';
+      return 'badge-low';
+    }
+
+    async function loadJobs() {
+      const res = await fetch('/api/jobs');
+      const jobs = await res.json();
+
+      document.getElementById('stat-total').textContent = jobs.length;
+      const completed = jobs.filter(j => j.status === 'complete');
+      document.getElementById('stat-complete').textContent = completed.length;
+      document.getElementById('stat-week').textContent =
+        completed.filter(j => isThisWeek(j.completed_at)).length;
+
+      const wrap = document.getElementById('table-wrap');
+
+      if (jobs.length === 0) {
+        wrap.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-title">No jobs yet</div>
+            <div class="empty-state-body">Create your first job to get started.</div>
+          </div>`;
+        return;
+      }
+
+      const rows = [...jobs].reverse().map(job => {
+        const statusBadge = `<span class="badge ${STATUS_CLASS[job.status] || 'badge-pending'}">${job.status}</span>`;
+        const atsBadge = job.ats_score
+          ? `<span class="badge ${ATS_SCORE_CLASS[job.ats_score] || ''}">${job.ats_score}</span>` : '—';
+        const fitBadge = job.fit_score != null
+          ? `<span class="badge ${fitScoreBadgeClass(job.fit_score)}">${job.fit_score}/10</span>` : '—';
+        const download = job.status === 'complete'
+          ? `<a href="/api/download/${job.id}" class="btn btn-ghost" style="padding:5px 10px;font-size:12px;">↓ .docx</a>` : '';
+        const resultLink = job.status === 'complete'
+          ? `<a href="result.html?id=${job.id}" class="btn btn-ghost" style="padding:5px 10px;font-size:12px;">Result</a>` : '';
+        const processingLink = (job.status === 'processing' || job.status === 'pending')
+          ? `<a href="processing.html?id=${job.id}" class="btn btn-ghost" style="padding:5px 10px;font-size:12px;">View</a>` : '';
+
+        return `<tr>
+          <td>${job.client_name}</td>
+          <td>${job.job_title || '—'}</td>
+          <td>${job.company || '—'}</td>
+          <td>${fmtDate(job.created_at)}</td>
+          <td>${job.experience_range || '—'}</td>
+          <td>${statusBadge}</td>
+          <td>${atsBadge}</td>
+          <td>${fitBadge}</td>
+          <td style="display:flex;gap:6px;flex-wrap:wrap;">${download}${resultLink}${processingLink}</td>
+        </tr>`;
+      }).join('');
+
+      wrap.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Client</th>
+              <th>Job Title</th>
+              <th>Company</th>
+              <th>Date</th>
+              <th>Experience</th>
+              <th>Status</th>
+              <th>ATS</th>
+              <th>Fit</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+    }
+
+    loadJobs().catch(() => {
+      document.getElementById('table-wrap').innerHTML =
+        `<div class="error-banner">Failed to load jobs. Is the server running?</div>`;
+    });
+  </script>
+</body>
+</html>

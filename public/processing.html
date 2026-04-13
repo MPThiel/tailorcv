@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TailorCV — Processing</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav class="nav">
+    <div class="container nav-inner">
+      <span class="nav-logo">TailorCV</span>
+      <div class="nav-links">
+        <a href="index.html">Dashboard</a>
+        <a href="new.html">New Job</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Processing</h1>
+        <p class="page-subtitle">Tailoring your resume with Claude…</p>
+      </div>
+    </div>
+
+    <div id="error-banner" class="error-banner" style="display:none;"></div>
+    <div id="pdf-hint" style="display:none;margin-bottom:16px;padding:12px 16px;background:rgba(136,136,136,0.08);border:1px solid var(--color-border);border-radius:var(--radius);font-size:13px;color:var(--color-text-muted);">
+      Could not parse PDF. Try converting to .docx and uploading again.
+      <a href="new.html" style="margin-left:8px;color:var(--color-accent);">← Upload .docx instead</a>
+    </div>
+
+    <div class="steps-list" id="steps-list">
+      <div class="step-item" id="step-1">
+        <div class="step-dot">1</div>
+        <div class="step-label">Resume parsed</div>
+      </div>
+      <div class="step-item" id="step-2">
+        <div class="step-dot">2</div>
+        <div class="step-label">Job description fetched</div>
+      </div>
+      <div class="step-item" id="step-3">
+        <div class="step-dot">3</div>
+        <div class="step-label">Analysing keywords</div>
+      </div>
+      <div class="step-item" id="step-4">
+        <div class="step-dot">4</div>
+        <div class="step-label">Rewriting resume</div>
+      </div>
+      <div class="step-item" id="step-5">
+        <div class="step-dot">5</div>
+        <div class="step-label">Building .docx</div>
+      </div>
+    </div>
+
+    <div style="margin-top:24px;">
+      <a href="new.html" class="btn btn-ghost" style="font-size:12px;">← Back to form</a>
+    </div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const jobId = params.get('id');
+
+    if (!jobId) {
+      window.location.href = 'index.html';
+    }
+
+    let pollInterval = null;
+
+    function setStepState(stepNum, state) {
+      const el = document.getElementById(`step-${stepNum}`);
+      if (!el) return;
+      el.classList.remove('active', 'done');
+      el.classList.add(state);
+
+      const dot = el.querySelector('.step-dot');
+      if (state === 'active') {
+        dot.innerHTML = '<div class="spinner"></div>';
+      } else if (state === 'done') {
+        dot.textContent = '✓';
+      } else {
+        dot.textContent = stepNum;
+      }
+    }
+
+    function renderStep(currentStep) {
+      for (let i = 1; i <= 5; i++) {
+        if (i < currentStep) setStepState(i, 'done');
+        else if (i === currentStep) setStepState(i, 'active');
+        else {
+          const el = document.getElementById(`step-${i}`);
+          el.classList.remove('active', 'done');
+          const dot = el.querySelector('.step-dot');
+          dot.textContent = i;
+        }
+      }
+    }
+
+    async function poll() {
+      try {
+        const res = await fetch(`/api/status/${jobId}`);
+        const data = await res.json();
+
+        if (data.error) {
+          stopPolling();
+          showError(data.message || 'Unknown error.');
+          return;
+        }
+
+        renderStep(data.step || 1);
+
+        if (data.status === 'complete') {
+          stopPolling();
+          renderStep(5);
+          setTimeout(() => {
+            window.location.href = `result.html?id=${jobId}`;
+          }, 600);
+        } else if (data.status === 'error') {
+          stopPolling();
+          for (let i = 1; i <= 5; i++) {
+            const el = document.getElementById(`step-${i}`);
+            el.classList.remove('active');
+          }
+          const msg = data.error_message || 'Processing failed. Please try again.';
+          showError(msg);
+          if (data.step === 1) {
+            document.getElementById('pdf-hint').style.display = 'block';
+          }
+        }
+      } catch {
+        // Silently retry — server may be temporarily busy
+      }
+    }
+
+    function stopPolling() {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+      }
+    }
+
+    function showError(msg) {
+      const banner = document.getElementById('error-banner');
+      banner.textContent = msg;
+      banner.style.display = 'block';
+    }
+
+    // Start polling
+    poll();
+    pollInterval = setInterval(poll, 2000);
+  </script>
+</body>
+</html>

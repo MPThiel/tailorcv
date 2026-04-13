@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TailorCV — New Job</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav class="nav">
+    <div class="container nav-inner">
+      <span class="nav-logo">TailorCV</span>
+      <div class="nav-links">
+        <a href="index.html">Dashboard</a>
+        <a href="new.html" class="active">New Job</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">New Job</h1>
+        <p class="page-subtitle">Upload a resume and provide a job description to tailor</p>
+      </div>
+    </div>
+
+    <div id="error-banner" class="error-banner" style="display:none;"></div>
+
+    <form id="submit-form" enctype="multipart/form-data">
+
+      <!-- Resume upload -->
+      <div class="card mb-24">
+        <div class="section-header">
+          <span class="section-title">Resume</span>
+        </div>
+        <div
+          class="drop-zone"
+          id="drop-zone"
+          tabindex="0"
+          role="button"
+          aria-label="Upload resume file">
+          <div class="drop-zone-icon">↑</div>
+          <div class="drop-zone-label">Drop your resume here, or click to browse</div>
+          <div class="drop-zone-hint">.docx or .pdf · max 10MB</div>
+          <div class="drop-zone-filename" id="drop-filename"></div>
+        </div>
+        <input type="file" id="resume-file" name="resume" accept=".docx,.pdf" style="display:none;">
+      </div>
+
+      <!-- Job description -->
+      <div class="card mb-24">
+        <div class="section-header">
+          <span class="section-title">Job Description</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="job-url">Job Posting URL</label>
+          <div class="input-row">
+            <input type="url" class="form-input" id="job-url" name="job_url" placeholder="https://...">
+            <button type="button" class="btn btn-ghost" id="fetch-btn">Fetch</button>
+          </div>
+          <div class="job-preview" id="job-preview"></div>
+        </div>
+
+        <button type="button" class="collapsible-toggle" id="paste-toggle">Or paste the job description instead</button>
+        <div class="collapsible-body" id="paste-body">
+          <textarea class="form-textarea" id="job-text" name="job_text" placeholder="Paste the full job description here…" style="min-height:200px;margin-top:0;"></textarea>
+        </div>
+      </div>
+
+      <!-- Job metadata -->
+      <div class="card mb-24">
+        <div class="section-header">
+          <span class="section-title">Job Details</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px;">
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label" for="client-name">Client Name <span style="color:var(--color-danger)">*</span></label>
+            <input type="text" class="form-input" id="client-name" name="client_name" placeholder="Jane Smith">
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label" for="job-title">Job Title</label>
+            <input type="text" class="form-input" id="job-title" name="job_title" placeholder="Senior Product Manager">
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label" for="company">Company</label>
+            <input type="text" class="form-input" id="company" name="company" placeholder="Acme Corp">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label" for="experience-range">Years of Experience</label>
+            <select class="form-select" id="experience-range" name="experience_range">
+              <option value="">Select</option>
+              <option value="0-2 years">0–2 years</option>
+              <option value="3-5 years">3–5 years</option>
+              <option value="6-10 years">6–10 years</option>
+              <option value="10+ years">10+ years</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label" for="current-salary">Current annual salary (anonymous, used for benchmarking)</label>
+            <input type="number" class="form-input" id="current-salary" name="current_salary" placeholder="e.g. 85000" min="0" step="1000">
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label" for="target-salary">Target salary for this role (anonymous, used for benchmarking)</label>
+            <input type="number" class="form-input" id="target-salary" name="target_salary" placeholder="e.g. 95000" min="0" step="1000">
+          </div>
+        </div>
+      </div>
+
+      <!-- Preferences -->
+      <div class="card mb-24">
+        <div class="section-header">
+          <span class="section-title">Preferences</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Preserve Formatting</label>
+          <div class="radio-group">
+            <label class="radio-option">
+              <input type="radio" name="preserve_format" value="yes"> Yes
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="preserve_format" value="no"> No
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="preserve_format" value="ai" checked> Let AI decide
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="tone">Tone</label>
+          <select class="form-select" id="tone" name="tone" style="max-width:260px;">
+            <option value="keep" selected>Keep as-is</option>
+            <option value="formal">More formal</option>
+            <option value="conversational">More conversational</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">ATS-Safe Mode</label>
+          <div class="toggle-wrap">
+            <label class="toggle">
+              <input type="checkbox" name="ats_mode" id="ats-toggle" value="true" checked>
+              <div class="toggle-track"></div>
+              <div class="toggle-thumb"></div>
+            </label>
+            <span class="text-sm text-muted" id="ats-label">On</span>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">Keyword Aggression</label>
+          <div class="radio-group">
+            <label class="radio-option">
+              <input type="radio" name="keyword_aggression" value="subtle"> Subtle
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="keyword_aggression" value="balanced" checked> Balanced
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="keyword_aggression" value="maximum"> Maximum
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;">
+        <button type="submit" class="btn btn-primary" id="submit-btn">Tailor Resume →</button>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    // Pre-fill client name from URL param
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('client')) {
+      document.getElementById('client-name').value = params.get('client');
+    }
+
+    // Drop zone
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('resume-file');
+    const dropFilename = document.getElementById('drop-filename');
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
+
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      if (e.dataTransfer.files.length) setFile(e.dataTransfer.files[0]);
+    });
+
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files.length) setFile(fileInput.files[0]);
+    });
+
+    function setFile(file) {
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      fileInput.files = dt.files;
+      dropZone.classList.add('has-file');
+      dropFilename.textContent = file.name;
+    }
+
+    // Paste collapsible
+    const pasteToggle = document.getElementById('paste-toggle');
+    const pasteBody = document.getElementById('paste-body');
+    pasteToggle.addEventListener('click', () => {
+      pasteBody.classList.toggle('open');
+      pasteToggle.textContent = pasteBody.classList.contains('open')
+        ? 'Hide paste area'
+        : 'Or paste the job description instead';
+    });
+
+    // URL fetch
+    const fetchBtn = document.getElementById('fetch-btn');
+    const jobPreview = document.getElementById('job-preview');
+
+    fetchBtn.addEventListener('click', async () => {
+      const url = document.getElementById('job-url').value.trim();
+      if (!url) return;
+      fetchBtn.disabled = true;
+      fetchBtn.textContent = 'Fetching…';
+      jobPreview.classList.remove('visible');
+      try {
+        const res = await fetch(`/api/scrape?url=${encodeURIComponent(url)}`);
+        const data = await res.json();
+        if (data.error) {
+          showError(data.message);
+        } else {
+          jobPreview.textContent = data.text.slice(0, 300) + (data.text.length > 300 ? '…' : '');
+          jobPreview.classList.add('visible');
+          // Store full text in hidden textarea if paste area not already filled
+          const pasteArea = document.getElementById('job-text');
+          if (!pasteArea.value) pasteArea.value = data.text;
+        }
+      } catch {
+        showError('Could not scrape URL. Try pasting the job description instead.');
+      } finally {
+        fetchBtn.disabled = false;
+        fetchBtn.textContent = 'Fetch';
+      }
+    });
+
+    // ATS toggle label
+    const atsToggle = document.getElementById('ats-toggle');
+    const atsLabel = document.getElementById('ats-label');
+    atsToggle.addEventListener('change', () => {
+      atsLabel.textContent = atsToggle.checked ? 'On' : 'Off';
+    });
+
+    // Error banner
+    function showError(msg) {
+      const banner = document.getElementById('error-banner');
+      banner.textContent = msg;
+      banner.style.display = 'block';
+      banner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function hideError() {
+      document.getElementById('error-banner').style.display = 'none';
+    }
+
+    // Form submit
+    document.getElementById('submit-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      hideError();
+
+      const clientName = document.getElementById('client-name').value.trim();
+      if (!clientName) { showError('Client name is required.'); return; }
+
+      if (!fileInput.files.length) { showError('Please upload a resume file.'); return; }
+
+      const jobUrl = document.getElementById('job-url').value.trim();
+      const jobText = document.getElementById('job-text').value.trim();
+      if (!jobUrl && !jobText) { showError('Provide a job URL or paste the job description.'); return; }
+
+      const submitBtn = document.getElementById('submit-btn');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Submitting…';
+
+      const fd = new FormData(e.target);
+
+      // Fix checkbox: only add ats_mode when unchecked (checked is already in FormData)
+      if (!atsToggle.checked) fd.set('ats_mode', 'false');
+
+      try {
+        const res = await fetch('/api/submit', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.error) {
+          showError(data.message);
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Tailor Resume →';
+        } else {
+          window.location.href = `processing.html?id=${data.id}`;
+        }
+      } catch {
+        showError('Submission failed. Check that the server is running.');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Tailor Resume →';
+      }
+    });
+  </script>
+</body>
+</html>

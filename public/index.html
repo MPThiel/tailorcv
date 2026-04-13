@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TailorCV — Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav class="nav">
+    <div class="container nav-inner">
+      <span class="nav-logo">TailorCV</span>
+      <div class="nav-links">
+        <a href="index.html" class="active">Dashboard</a>
+        <a href="new.html">New Job</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Dashboard</h1>
+        <p class="page-subtitle">Aggregated benchmarking data — anonymised</p>
+      </div>
+      <a href="new.html" class="btn btn-primary">+ New Job</a>
+    </div>
+
+    <!-- 6-stat grid -->
+    <div class="stats-grid" id="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value" id="stat-total">—</div>
+        <div class="stat-label">Total Jobs</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-week">—</div>
+        <div class="stat-label">Completed This Week</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-avg-ats">—</div>
+        <div class="stat-label">Average ATS Score</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-avg-fit">—</div>
+        <div class="stat-label">Average Fit Score</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-avg-salary">—</div>
+        <div class="stat-label">Avg. Target Salary</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-avg-exp" style="font-size:16px;line-height:1.2;">—</div>
+        <div class="stat-label">Most Common Level</div>
+      </div>
+    </div>
+
+    <!-- Gamification row -->
+    <div style="display:flex;align-items:center;gap:32px;margin-bottom:28px;flex-wrap:wrap;">
+      <div id="streak-display" class="streak-display"></div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span class="section-title" style="flex-shrink:0;">Top Industries This Week</span>
+        <span id="industry-pills"></span>
+      </div>
+    </div>
+
+    <!-- Anonymised benchmarking table -->
+    <div class="section-header mb-16">
+      <span class="text-sm text-muted">Recent applications — anonymised for benchmarking</span>
+    </div>
+    <div class="table-wrap" id="table-wrap">
+      <div class="empty-state">
+        <div class="empty-state-title">Loading…</div>
+      </div>
+    </div>
+  </div>
+
+  <footer style="border-top:1px solid var(--color-border);margin-top:60px;padding:20px 0;">
+    <div class="container" style="text-align:right;">
+      <a href="admin.html" style="font-size:11px;color:#444;text-decoration:none;">Admin</a>
+    </div>
+  </footer>
+
+  <script>
+    const ATS_SCORE_CLASS = { High: 'badge-high', Medium: 'badge-medium', Low: 'badge-low' };
+    let activeIndustry = null;
+    let recentJobs = [];
+
+    const INDUSTRY_MAP = {
+      'Finance':    ['finance','banking','investment','financial','accounting','cfo','fintech','analyst','fund','equity','treasury'],
+      'Tech':       ['engineer','developer','software','data','product','devops','cloud','ai','ml','tech','it','platform','backend','frontend','fullstack','sre'],
+      'Operations': ['operations','ops','supply chain','logistics','coordinator','specialist','procurement','warehouse','facilities'],
+      'Marketing':  ['marketing','brand','content','seo','growth','digital','social media','campaign','creative','copywriter'],
+      'Sales':      ['sales','account','business development','revenue','crm','bd','partnerships','commercial'],
+      'Healthcare': ['health','medical','clinical','nursing','pharma','healthcare','care','therapy','patient'],
+      'Legal':      ['legal','counsel','attorney','compliance','contract','paralegal','regulatory'],
+      'HR':         ['hr','human resources','talent','recruiting','recruiter','people','culture','onboarding'],
+      'Design':     ['design','ux','ui','product design','creative director','graphic','motion'],
+      'Education':  ['education','teacher','instructor','curriculum','training','learning','tutor'],
+    };
+
+    function fmtDate(iso) {
+      if (!iso) return '—';
+      return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    function isThisWeek(iso) {
+      if (!iso) return false;
+      const d = new Date(iso);
+      const now = new Date();
+      return d >= new Date(now - 7 * 24 * 60 * 60 * 1000) && d <= now;
+    }
+
+    function computeStreak(jobs) {
+      if (!jobs.length) return 0;
+      const days = new Set(jobs.map(j => j.created_at?.slice(0, 10)).filter(Boolean));
+      const today = new Date().toISOString().slice(0, 10);
+      const startOffset = days.has(today) ? 0 : 1;
+      let streak = 0;
+      const base = new Date();
+      for (let i = startOffset; i < 365; i++) {
+        const d = new Date(base);
+        d.setDate(d.getDate() - i);
+        if (days.has(d.toISOString().slice(0, 10))) {
+          streak++;
+        } else {
+          break;
+        }
+      }
+      return streak;
+    }
+
+    function topIndustries(jobs) {
+      const weekJobs = jobs.filter(j => isThisWeek(j.created_at));
+      const counts = {};
+      for (const job of weekJobs) {
+        const title = (job.job_title || '').toLowerCase();
+        for (const [industry, keywords] of Object.entries(INDUSTRY_MAP)) {
+          if (keywords.some(kw => title.includes(kw))) {
+            counts[industry] = (counts[industry] || 0) + 1;
+          }
+        }
+      }
+      return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k]) => k);
+    }
+
+    function atsToNum(score) {
+      return score === 'High' ? 3 : score === 'Medium' ? 2 : score === 'Low' ? 1 : null;
+    }
+
+    function numToAts(n) {
+      if (n >= 2.5) return 'High';
+      if (n >= 1.5) return 'Medium';
+      return 'Low';
+    }
+
+    function fmtSalary(n) {
+      return '$' + Math.round(n).toLocaleString('en-US');
+    }
+
+    function fitScoreBadgeClass(score) {
+      if (score >= 8) return 'badge-high';
+      if (score >= 5) return 'badge-medium';
+      return 'badge-low';
+    }
+
+    async function loadJobs() {
+      const res = await fetch('/api/jobs');
+      const jobs = await res.json();
+      const completed = jobs.filter(j => j.status === 'complete');
+
+      // --- Stats ---
+      document.getElementById('stat-total').textContent = jobs.length;
+      document.getElementById('stat-week').textContent =
+        completed.filter(j => isThisWeek(j.completed_at)).length;
+
+      // Avg ATS
+      const atsNums = completed.map(j => atsToNum(j.ats_score)).filter(n => n != null);
+      if (atsNums.length) {
+        const avg = atsNums.reduce((a, b) => a + b, 0) / atsNums.length;
+        const label = numToAts(avg);
+        const el = document.getElementById('stat-avg-ats');
+        el.innerHTML = `<span class="badge ${ATS_SCORE_CLASS[label]}" style="font-size:13px;padding:3px 10px;">${label}</span>`;
+      }
+
+      // Avg Fit Score
+      const fitScores = completed.map(j => j.fit_score).filter(n => n != null);
+      const fitEl = document.getElementById('stat-avg-fit');
+      if (fitScores.length >= 5) {
+        const avg = fitScores.reduce((a, b) => a + b, 0) / fitScores.length;
+        const rounded = Math.round(avg * 10) / 10;
+        fitEl.innerHTML = `<span class="badge ${fitScoreBadgeClass(rounded)}" style="font-size:13px;padding:3px 10px;">${rounded}</span>`;
+      } else {
+        fitEl.textContent = '—';
+      }
+
+      // Avg Target Salary
+      const salaries = jobs.map(j => j.target_salary).filter(n => n != null && n > 0);
+      const salaryEl = document.getElementById('stat-avg-salary');
+      if (salaries.length >= 3) {
+        const avg = salaries.reduce((a, b) => a + b, 0) / salaries.length;
+        salaryEl.textContent = fmtSalary(avg);
+        salaryEl.style.fontSize = '20px';
+      } else {
+        salaryEl.textContent = '—';
+      }
+
+      // Most Common Experience Level
+      const expCounts = {};
+      jobs.forEach(j => { if (j.experience_range) expCounts[j.experience_range] = (expCounts[j.experience_range] || 0) + 1; });
+      const topExp = Object.entries(expCounts).sort((a, b) => b[1] - a[1])[0];
+      const expEl = document.getElementById('stat-avg-exp');
+      expEl.textContent = topExp ? topExp[0] : '—';
+
+      // --- Streak ---
+      const streak = computeStreak(jobs);
+      const streakEl = document.getElementById('streak-display');
+      if (streak > 0) {
+        streakEl.innerHTML = `<span style="font-size:18px;">🔥</span> <span class="streak-count">${streak}</span> <span>day streak</span>`;
+      } else {
+        streakEl.textContent = 'No streak yet — submit a job today!';
+      }
+
+      // --- Industry pills ---
+      const industries = topIndustries(jobs);
+      const pillsEl = document.getElementById('industry-pills');
+      if (industries.length) {
+        pillsEl.innerHTML = industries.map(i => `<span class="industry-pill" data-industry="${i}">${i}</span>`).join('');
+        pillsEl.querySelectorAll('.industry-pill').forEach(pill => {
+          pill.addEventListener('click', () => {
+            const clicked = pill.dataset.industry;
+            if (activeIndustry === clicked) {
+              activeIndustry = null;
+            } else {
+              activeIndustry = clicked;
+            }
+            pillsEl.querySelectorAll('.industry-pill').forEach(p => {
+              const isActive = p.dataset.industry === activeIndustry;
+              p.style.background = isActive ? 'var(--color-accent)' : '';
+              p.style.color = isActive ? '#0f0f0f' : '';
+              p.style.borderColor = isActive ? 'var(--color-accent)' : '';
+            });
+            filterTable();
+          });
+        });
+      } else {
+        pillsEl.innerHTML = '<span class="text-sm text-muted">No data this week</span>';
+      }
+
+      // --- Anon table ---
+      const wrap = document.getElementById('table-wrap');
+      recentJobs = [...jobs].reverse().slice(0, 20).filter(j => j.status === 'complete');
+
+      if (recentJobs.length === 0) {
+        wrap.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-title">No completed jobs yet</div>
+            <div class="empty-state-body">Completed jobs will appear here anonymised.</div>
+          </div>`;
+        return;
+      }
+
+      renderTable(recentJobs);
+    }
+
+    function jobMatchesIndustry(job, industry) {
+      const title = (job.job_title || '').toLowerCase();
+      const keywords = INDUSTRY_MAP[industry] || [];
+      return keywords.some(kw => title.includes(kw));
+    }
+
+    function filterTable() {
+      const tbody = document.querySelector('#table-wrap tbody');
+      if (!tbody) return;
+      tbody.querySelectorAll('tr').forEach(row => {
+        if (!activeIndustry) {
+          row.style.display = '';
+        } else {
+          const title = (row.dataset.title || '').toLowerCase();
+          const keywords = INDUSTRY_MAP[activeIndustry] || [];
+          row.style.display = keywords.some(kw => title.includes(kw)) ? '' : 'none';
+        }
+      });
+    }
+
+    function renderTable(recent) {
+      const wrap = document.getElementById('table-wrap');
+      const rows = recent.map(job => {
+        const atsBadge = job.ats_score
+          ? `<span class="badge ${ATS_SCORE_CLASS[job.ats_score] || ''}">${job.ats_score}</span>` : '—';
+        const fitBadge = job.fit_score != null
+          ? `<span class="badge ${fitScoreBadgeClass(job.fit_score)}">${job.fit_score}/10</span>` : '—';
+        const title = (job.job_title || '').replace(/"/g, '&quot;');
+        return `<tr data-title="${title}">
+          <td>${job.job_title || '—'}</td>
+          <td>${job.company || '—'}</td>
+          <td>${fmtDate(job.created_at)}</td>
+          <td>${job.experience_range || '—'}</td>
+          <td>${atsBadge}</td>
+          <td>${fitBadge}</td>
+        </tr>`;
+      }).join('');
+
+      wrap.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Job Title</th>
+              <th>Company</th>
+              <th>Date</th>
+              <th>Experience</th>
+              <th>ATS Score</th>
+              <th>Fit Score</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+    }
+
+    loadJobs().catch(() => {
+      document.getElementById('table-wrap').innerHTML =
+        `<div class="error-banner">Failed to load jobs. Is the server running?</div>`;
+    });
+  </script>
+</body>
+</html>

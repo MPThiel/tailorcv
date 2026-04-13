@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TailorCV — Result</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav class="nav">
+    <div class="container nav-inner">
+      <span class="nav-logo">TailorCV</span>
+      <div class="nav-links">
+        <a href="index.html">Dashboard</a>
+        <a href="new.html">New Job</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div id="loading" style="padding:60px 0;text-align:center;color:var(--color-text-muted);">Loading result…</div>
+    <div id="content" style="display:none;">
+
+      <div class="page-header">
+        <div>
+          <h1 class="page-title" id="result-title">Result</h1>
+          <p class="page-subtitle" id="result-subtitle"></p>
+        </div>
+        <a href="index.html" class="btn btn-ghost">← Dashboard</a>
+      </div>
+
+      <!-- Summary bar -->
+      <div class="result-bar">
+        <div class="result-stat">
+          <div class="result-stat-value" id="stat-keywords">—</div>
+          <div class="result-stat-label">Keywords Matched</div>
+        </div>
+        <div class="result-stat">
+          <div class="result-stat-value" id="stat-ats" style="font-size:20px;">—</div>
+          <div class="result-stat-label">ATS Score</div>
+        </div>
+        <div class="result-stat">
+          <div class="result-stat-value" id="stat-fit" style="font-size:20px;">—</div>
+          <div class="result-stat-label">Fit Score</div>
+        </div>
+        <div class="result-stat">
+          <div class="result-stat-value" id="stat-gaps">—</div>
+          <div class="result-stat-label">Skill Gaps Flagged</div>
+        </div>
+      </div>
+
+      <!-- Download -->
+      <div class="card mb-24">
+        <div class="section-header">
+          <span class="section-title">Download</span>
+        </div>
+        <div class="download-area">
+          <div id="email-gate">
+            <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;">
+              <div style="flex:1;min-width:220px;">
+                <input type="email" id="email-input" class="form-input" placeholder="your@email.com" style="margin-bottom:0;">
+                <div id="email-error" style="display:none;color:var(--color-danger);font-size:12px;margin-top:6px;"></div>
+              </div>
+              <button id="email-submit-btn" class="btn btn-primary" style="font-size:15px;padding:12px 24px;white-space:nowrap;">
+                Download Resume →
+              </button>
+            </div>
+            <div id="email-confirm" style="display:none;color:var(--color-success);font-size:14px;margin-top:12px;">
+              You're in! Your resume is downloading…
+            </div>
+          </div>
+          <a id="another-btn" href="new.html" class="btn btn-ghost">Run another job for this client</a>
+        </div>
+      </div>
+
+      <!-- Gaps -->
+      <div class="card" id="gaps-card" style="display:none;">
+        <div class="section-header">
+          <span class="section-title">Skill Gaps Flagged by Claude</span>
+        </div>
+        <p class="text-sm text-muted mb-16">These required skills were not found in the original resume. They have <em>not</em> been invented — address them in outreach or interviews.</p>
+        <ul class="gaps-list" id="gaps-list"></ul>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzFmd927MDVwjHXbXPWiJVX8qPAIapREhfXMe3nrsExyvz3yFgE74sgfbCseCz0rjd3cw/exec';
+
+    const params = new URLSearchParams(window.location.search);
+    const jobId = params.get('id');
+
+    if (!jobId) window.location.href = 'index.html';
+
+    const ATS_SCORE_CLASS = { High: 'badge-high', Medium: 'badge-medium', Low: 'badge-low' };
+
+    let currentJob = null;
+
+    async function loadResult() {
+      const res = await fetch(`/api/jobs/${jobId}`);
+      if (!res.ok) {
+        document.getElementById('loading').textContent = 'Job not found.';
+        return;
+      }
+      const job = await res.json();
+      currentJob = job;
+
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('content').style.display = 'block';
+
+      document.getElementById('result-title').textContent =
+        `${job.client_name}${job.job_title ? ' — ' + job.job_title : ''}`;
+      document.getElementById('result-subtitle').textContent =
+        job.company ? `at ${job.company}` : '';
+
+      document.getElementById('stat-keywords').textContent = job.keywords_matched ?? '—';
+      document.getElementById('stat-gaps').textContent = (job.gaps || []).length;
+
+      const atsEl = document.getElementById('stat-ats');
+      if (job.ats_score) {
+        atsEl.textContent = job.ats_score;
+        atsEl.className = `result-stat-value badge ${ATS_SCORE_CLASS[job.ats_score] || ''}`;
+        atsEl.style.fontSize = '18px';
+        atsEl.style.display = 'inline-block';
+        atsEl.style.padding = '4px 12px';
+        atsEl.style.borderRadius = '4px';
+      }
+
+      const fitEl = document.getElementById('stat-fit');
+      if (job.fit_score != null) {
+        const fitClass = job.fit_score >= 8 ? 'badge-high' : job.fit_score >= 5 ? 'badge-medium' : 'badge-low';
+        fitEl.textContent = `${job.fit_score}/10`;
+        fitEl.className = `result-stat-value badge ${fitClass}`;
+        fitEl.style.fontSize = '18px';
+        fitEl.style.display = 'inline-block';
+        fitEl.style.padding = '4px 12px';
+        fitEl.style.borderRadius = '4px';
+      }
+
+      const anotherBtn = document.getElementById('another-btn');
+      anotherBtn.href = `new.html?client=${encodeURIComponent(job.client_name)}`;
+
+      const gaps = job.gaps || [];
+      if (gaps.length > 0) {
+        const gapsCard = document.getElementById('gaps-card');
+        gapsCard.style.display = 'block';
+        const gapsList = document.getElementById('gaps-list');
+        gapsList.innerHTML = gaps.map((g) =>
+          `<li class="gap-item"><span class="gap-dot">▲</span><span>${g}</span></li>`
+        ).join('');
+      }
+    }
+
+    function triggerDownload() {
+      const a = document.createElement('a');
+      a.href = `/api/download/${jobId}`;
+      a.download = '';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    document.getElementById('email-submit-btn').addEventListener('click', async () => {
+      const emailInput = document.getElementById('email-input');
+      const emailError = document.getElementById('email-error');
+      const emailConfirm = document.getElementById('email-confirm');
+      const submitBtn = document.getElementById('email-submit-btn');
+      const email = emailInput.value.trim();
+
+      emailError.style.display = 'none';
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        emailError.textContent = 'Please enter a valid email address.';
+        emailError.style.display = 'block';
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Sending…';
+
+      const payload = {
+        email,
+        job_title: currentJob?.job_title || '',
+        company: currentJob?.company || '',
+        date: currentJob?.created_at || '',
+        ats_score: currentJob?.ats_score || '',
+        fit_score: currentJob?.fit_score != null ? String(currentJob.fit_score) : '',
+        experience_range: currentJob?.experience_range || '',
+        current_salary: currentJob?.current_salary != null ? String(currentJob.current_salary) : '',
+        target_salary: currentJob?.target_salary != null ? String(currentJob.target_salary) : '',
+      };
+
+      try {
+        await fetch(APPS_SCRIPT_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      } catch (_) {
+        // Ignore — always proceed to download
+      }
+
+      emailInput.disabled = true;
+      submitBtn.style.display = 'none';
+      emailConfirm.style.display = 'block';
+
+      setTimeout(() => {
+        triggerDownload();
+      }, 1500);
+    });
+
+    loadResult().catch(() => {
+      document.getElementById('loading').textContent = 'Failed to load result.';
+    });
+  </script>
+</body>
+</html>
