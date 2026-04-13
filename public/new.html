@@ -61,6 +61,7 @@
             <button type="button" class="btn btn-ghost" id="fetch-btn">Fetch</button>
           </div>
           <div class="job-preview" id="job-preview"></div>
+          <div class="text-sm text-muted mt-8">Note: Indeed and LinkedIn block scraping. Use the paste option for these sites.</div>
         </div>
 
         <button type="button" class="collapsible-toggle" id="paste-toggle">Or paste the job description instead</button>
@@ -181,6 +182,15 @@
       document.getElementById('client-name').value = params.get('client');
     }
 
+    // Auto-expand paste area and show alert if redirected from a blocked scrape
+    if (params.get('scrape_blocked') === '1') {
+      const pasteBodyEl = document.getElementById('paste-body');
+      const pasteToggleEl = document.getElementById('paste-toggle');
+      pasteBodyEl.classList.add('open');
+      pasteToggleEl.textContent = 'Hide paste area';
+      showError('⚠️ This job board (e.g. Indeed, LinkedIn) blocks automated scraping. Please copy and paste the job description manually instead.');
+    }
+
     // Drop zone
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('resume-file');
@@ -236,7 +246,17 @@
         const res = await fetch(`/api/scrape?url=${encodeURIComponent(url)}`);
         const data = await res.json();
         if (data.error) {
-          showError(data.message);
+          if (data.code === 'SCRAPE_BLOCKED') {
+            const pasteBodyEl = document.getElementById('paste-body');
+            const pasteToggleEl = document.getElementById('paste-toggle');
+            if (!pasteBodyEl.classList.contains('open')) {
+              pasteBodyEl.classList.add('open');
+              pasteToggleEl.textContent = 'Hide paste area';
+            }
+            showError('⚠️ This job board (e.g. Indeed, LinkedIn) blocks automated scraping. Please copy and paste the job description manually instead.');
+          } else {
+            showError(data.message);
+          }
         } else {
           jobPreview.textContent = data.text.slice(0, 300) + (data.text.length > 300 ? '…' : '');
           jobPreview.classList.add('visible');

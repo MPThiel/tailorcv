@@ -123,6 +123,10 @@
             const el = document.getElementById(`step-${i}`);
             el.classList.remove('active');
           }
+          if (data.error_code === 'SCRAPE_BLOCKED') {
+            window.location.href = 'new.html?scrape_blocked=1';
+            return;
+          }
           const msg = data.error_message || 'Processing failed. Please try again.';
           showError(msg);
           if (data.step === 1) {

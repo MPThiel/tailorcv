@@ -73,6 +73,9 @@ router.get('/scrape', async (req, res) => {
     res.json({ text });
   } catch (err) {
     console.error('[scrape]', err.message);
+    if (err.message === 'SCRAPE_BLOCKED') {
+      return res.status(422).json({ error: true, code: 'SCRAPE_BLOCKED', message: 'This job board blocks automated access.' });
+    }
     res.status(500).json({ error: true, message: 'Could not scrape URL. Use paste option.' });
   }
 });
@@ -173,7 +176,11 @@ async function runPipeline(id) {
       updateJob(id, { _step: 'keywords' });
     } catch (err) {
       console.error(`[submit] [${id}] Step 2 FAILED — Scrape error:`, err.message);
-      updateJob(id, { status: 'error', _step_error: `Job description fetch failed: ${err.message}` });
+      if (err.message === 'SCRAPE_BLOCKED') {
+        updateJob(id, { status: 'error', _step_error: 'This job board blocks automated access.', _error_code: 'SCRAPE_BLOCKED' });
+      } else {
+        updateJob(id, { status: 'error', _step_error: `Job description fetch failed: ${err.message}` });
+      }
       return;
     }
   } else {

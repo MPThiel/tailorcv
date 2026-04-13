@@ -30,6 +30,13 @@ async function scrape(url) {
 
     const text = $('body').text().replace(/\s+/g, ' ').trim();
     console.log(`[scraper] Done. Extracted ${text.length} characters.`);
+
+    const blockSignals = ['redirecting', 'sign in', 'log in', 'login', 'captcha', 'please enable', 'javascript required'];
+    const isBlocked = text.length < 200 || blockSignals.some(signal => text.toLowerCase().includes(signal));
+    if (isBlocked) {
+      throw new Error('SCRAPE_BLOCKED');
+    }
+
     return text;
   } finally {
     if (browser) {

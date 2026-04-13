@@ -33,6 +33,7 @@ router.get('/status/:id', (req, res) => {
       step,
       step_label: job._step || null,
       error_message: job._step_error || null,
+      error_code: job._error_code || null,
     });
   } catch (err) {
     console.error(`[${req.params.id}]`, err.message);
