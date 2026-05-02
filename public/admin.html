@@ -131,7 +131,7 @@
         const salaryCell = job.target_salary ? fmtSalary(job.target_salary) : '—';
         const emailCell = job.candidate_email
           ? `<a href="mailto:${job.candidate_email}" style="color:var(--color-accent);text-decoration:none;">${job.candidate_email}</a>` : '—';
-        const deleteBtn = `<button class="btn btn-ghost" style="padding:5px 10px;font-size:12px;color:var(--color-danger);border-color:var(--color-danger);" onclick="deleteJob('${job.id}', this)">Delete</button>`;
+        const deleteBtn = `<button class="delete-btn btn btn-ghost" data-job-id="${job.id}" style="padding:5px 10px;font-size:12px;color:var(--color-danger);border-color:var(--color-danger);">Delete</button>`;
         return `<tr id="row-${job.id}">
           <td>${job.client_name}</td>
           <td>${job.job_title || '—'}</td>
@@ -190,6 +190,12 @@
         alert('Failed to delete job.');
       }
     }
+
+    document.getElementById('table-wrap').addEventListener('click', (e) => {
+      if (e.target.classList.contains('delete-btn')) {
+        deleteJob(e.target.dataset.jobId, e.target);
+      }
+    });
 
     loadJobs().catch(() => {
       document.getElementById('table-wrap').innerHTML =

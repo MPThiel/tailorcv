@@ -67,7 +67,6 @@ PREFERENCES:
 
 async function callClaude(userMessage) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  console.log('[rewriter] Using key starting with:', apiKey?.slice(0, 15));
   const client = new Anthropic({ apiKey });
   console.log('[rewriter] Sending request to Claude API...');
   const response = await client.messages.create({

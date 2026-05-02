@@ -146,9 +146,18 @@
         const gapsCard = document.getElementById('gaps-card');
         gapsCard.style.display = 'block';
         const gapsList = document.getElementById('gaps-list');
-        gapsList.innerHTML = gaps.map((g) =>
-          `<li class="gap-item"><span class="gap-dot">▲</span><span>${g}</span></li>`
-        ).join('');
+        gaps.forEach((g) => {
+          const li = document.createElement('li');
+          li.className = 'gap-item';
+          const dot = document.createElement('span');
+          dot.className = 'gap-dot';
+          dot.textContent = '▲';
+          const text = document.createElement('span');
+          text.textContent = g;
+          li.appendChild(dot);
+          li.appendChild(text);
+          gapsList.appendChild(li);
+        });
       }
     }
 

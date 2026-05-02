@@ -9,6 +9,16 @@ const parser = require('../agent/parser');
 const rewriter = require('../agent/rewriter');
 const builder = require('../agent/builder');
 const jobsDb = require('../db/jobs');
+const { validateUrl } = require('../utils/validateUrl');
+const rateLimit = require('express-rate-limit');
+
+const scrapeLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' },
+});
 
 const router = express.Router();
 const OUTPUTS_DIR = path.join(__dirname, '../data/outputs');
@@ -68,9 +78,14 @@ router.delete('/jobs/:id', async (req, res) => {
   }
 });
 
-router.get('/scrape', async (req, res) => {
+router.get('/scrape', scrapeLimiter, async (req, res) => {
   const { url } = req.query;
   if (!url) return res.status(400).json({ error: true, message: 'url query param required.' });
+  try {
+    await validateUrl(url);
+  } catch {
+    return res.status(400).json({ error: 'Invalid or disallowed URL' });
+  }
   try {
     const text = await scraper.scrape(url);
     res.json({ text });
@@ -166,7 +181,7 @@ async function runPipeline(id, resumePath, resumeOriginal, jobText, jobUrl, pref
     await jobsDb.updateJob(id, { _step: 'scraped' });
   } catch (err) {
     console.error(`[submit] [${id}] Step 1 FAILED — Parse error:`, err.message);
-    await jobsDb.updateJob(id, { status: 'error', _step_error: err.message });
+    await jobsDb.updateJob(id, { status: 'error', _step_error: 'An internal error occurred. Please try again.' });
     return;
   }
 
@@ -184,7 +199,7 @@ async function runPipeline(id, resumePath, resumeOriginal, jobText, jobUrl, pref
       if (err.message === 'SCRAPE_BLOCKED') {
         await jobsDb.updateJob(id, { status: 'error', _step_error: 'This job board blocks automated access.', _error_code: 'SCRAPE_BLOCKED' });
       } else {
-        await jobsDb.updateJob(id, { status: 'error', _step_error: `Job description fetch failed: ${err.message}` });
+        await jobsDb.updateJob(id, { status: 'error', _step_error: 'An internal error occurred. Please try again.' });
       }
       return;
     }
@@ -208,7 +223,7 @@ async function runPipeline(id, resumePath, resumeOriginal, jobText, jobUrl, pref
     console.log(`[submit] [${id}] Step 3 complete. Keywords: ${(result.keywords_matched || []).length}, ATS: ${result.ats_score}, Fit: ${result.fit_score}`);
   } catch (err) {
     console.error(`[submit] [${id}] Step 3 FAILED — Rewrite error:`, err.message);
-    await jobsDb.updateJob(id, { status: 'error', _step_error: `AI rewrite failed: ${err.message}` });
+    await jobsDb.updateJob(id, { status: 'error', _step_error: 'An internal error occurred. Please try again.' });
     return;
   }
 
@@ -226,7 +241,7 @@ async function runPipeline(id, resumePath, resumeOriginal, jobText, jobUrl, pref
     console.log(`[submit] [${id}] Step 4 complete. File: ${filename}`);
   } catch (err) {
     console.error(`[submit] [${id}] Step 4 FAILED — Builder error:`, err.message);
-    await jobsDb.updateJob(id, { status: 'error', _step_error: `Document build failed: ${err.message}` });
+    await jobsDb.updateJob(id, { status: 'error', _step_error: 'An internal error occurred. Please try again.' });
     return;
   }
 

@@ -19,8 +19,17 @@ router.get('/download/:id', async (req, res) => {
       return res.status(404).json({ error: true, message: 'Output file missing from disk.' });
     }
 
-    const downloadName = `${job.client_name.replace(/\s+/g, '_')}_resume.docx`;
-    res.setHeader('Content-Disposition', `attachment; filename="${downloadName}"`);
+    // Control chars stripped first so quotes/backslashes added by them can't survive into later steps.
+    let safeName = (job.client_name || '')
+      .replace(/[\x00-\x1f\x7f]/g, '') // strip all control characters (incl. \r \n \t)
+      .replace(/"/g, '')                // strip double-quotes (would break quoted header token)
+      .replace(/\\/g, '')               // strip backslashes (escape-sequence risk)
+      .trim()
+      .replace(/\s+/g, '_')            // collapse remaining whitespace to underscores
+      || 'resume';
+    const downloadName = `${safeName}_resume.docx`;
+    const encoded = encodeURIComponent(downloadName);
+    res.setHeader('Content-Disposition', `attachment; filename="${downloadName}"; filename*=UTF-8''${encoded}`);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     fs.createReadStream(filePath).pipe(res);
   } catch (err) {
