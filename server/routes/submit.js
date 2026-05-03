@@ -10,6 +10,7 @@ const rewriter = require('../agent/rewriter');
 const builder = require('../agent/builder');
 const jobsDb = require('../db/jobs');
 const { validateUrl } = require('../utils/validateUrl');
+const { requireAdminAuth } = require('../middleware/auth');
 const rateLimit = require('express-rate-limit');
 
 const scrapeLimiter = rateLimit({
@@ -33,7 +34,7 @@ const upload = multer({
   },
 });
 
-router.get('/jobs', async (req, res) => {
+router.get('/jobs', requireAdminAuth, async (req, res) => {
   try {
     const jobs = await jobsDb.getAllJobs();
     res.json(jobs);
@@ -67,7 +68,7 @@ router.patch('/jobs/:id/email', async (req, res) => {
   }
 });
 
-router.delete('/jobs/:id', async (req, res) => {
+router.delete('/jobs/:id', requireAdminAuth, async (req, res) => {
   try {
     await jobsDb.deleteJob(req.params.id);
     res.json({ ok: true });

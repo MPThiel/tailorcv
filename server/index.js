@@ -7,6 +7,7 @@ const helmet = require('helmet');
 const submitRoutes = require('./routes/submit');
 const statusRoutes = require('./routes/status');
 const downloadRoutes = require('./routes/download');
+const { requireAdminAuth } = require('./middleware/auth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -30,7 +31,7 @@ if (fs.existsSync(PDFTOTEXT_PATH)) {
 
 app.use(express.json());
 
-app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, '../public/admin.html')));
+app.get('/admin', requireAdminAuth, (req, res) => res.sendFile(path.join(__dirname, '../public/admin.html')));
 app.get('/new', (req, res) => res.sendFile(path.join(__dirname, '../public/new.html')));
 app.get('/processing', (req, res) => res.sendFile(path.join(__dirname, '../public/processing.html')));
 app.get('/result', (req, res) => res.sendFile(path.join(__dirname, '../public/result.html')));
