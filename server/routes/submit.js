@@ -34,7 +34,7 @@ const upload = multer({
   },
 });
 
-router.get('/jobs', requireAdminAuth, async (req, res) => {
+router.get('/jobs', async (req, res) => {
   try {
     const jobs = await jobsDb.getAllJobs();
     res.json(jobs);
